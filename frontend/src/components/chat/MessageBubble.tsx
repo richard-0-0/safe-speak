@@ -33,17 +33,23 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         ? format(message.timestamp.toDate(), 'h:mm a')
         : '';
 
+    // Toggle timestamp on click (touch-friendly) and also support hover
+    const handleToggleTimestamp = () => {
+        setShowTimestamp((prev) => !prev);
+    };
+
     return (
         <div
             className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3 group animate-fade-in-up`}
             onMouseEnter={() => setShowTimestamp(true)}
             onMouseLeave={() => setShowTimestamp(false)}
+            onClick={handleToggleTimestamp}
         >
-            <div className="relative max-w-[75%]">
+            <div className="relative max-w-[85%] md:max-w-[75%]">
                 {/* Message Content */}
                 <div
                     className={`
-            px-4 py-2.5 rounded-2xl font-body text-sm leading-relaxed
+            px-3.5 py-2.5 rounded-2xl font-body text-sm leading-relaxed
             ${isOwn
                             ? 'bg-gradient-to-r from-accent-teal/20 to-accent-blue/20 border border-accent-teal/20 text-white rounded-br-md'
                             : 'bg-surface border border-surface-border text-white/90 rounded-bl-md'
@@ -61,7 +67,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
                     </div>
                 )}
 
-                {/* Timestamp on hover */}
+                {/* Timestamp — shown on hover (desktop) or tap (mobile) */}
                 <div
                     className={`
             absolute -bottom-5 text-[10px] text-white/30 font-body

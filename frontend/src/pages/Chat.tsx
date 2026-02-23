@@ -1,19 +1,39 @@
 // ── SafeSpeak — Chat Page ───────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { Shield, LogOut, Bot, MessageSquare, UserPlus, Loader2 } from 'lucide-react';
+import { Shield, LogOut, Bot, MessageSquare, UserPlus, Loader2, Sun, Moon, X, MessagesSquare } from 'lucide-react';
 import { api } from '@/services/api';
 import { Link } from 'react-router-dom';
 
 export function ChatPage() {
     const { user, loading, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
     const [showNewChat, setShowNewChat] = useState(false);
     const [newChatEmail, setNewChatEmail] = useState('');
     const [creating, setCreating] = useState(false);
+    // Mobile: controls whether the sidebar drawer is visible
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // On desktop (≥768px) the sidebar is always visible; on mobile it's a drawer.
+    // When a conversation is selected on mobile, close the drawer.
+    const handleSelectConversation = (id: string) => {
+        setActiveConversationId(id);
+        setSidebarOpen(false); // close drawer on mobile
+    };
+
+    // Listen for resize — if user resizes above md breakpoint, close the drawer overlay
+    useEffect(() => {
+        const onResize = () => {
+            if (window.innerWidth >= 768) setSidebarOpen(false);
+        };
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     if (loading) {
         return (
@@ -37,6 +57,7 @@ export function ChatPage() {
             setActiveConversationId(response.data.conversationId);
             setShowNewChat(false);
             setNewChatEmail('');
+            setSidebarOpen(false);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Could not start conversation';
             alert(message);
@@ -47,67 +68,123 @@ export function ChatPage() {
 
     return (
         <div className="h-screen flex flex-col bg-navy-900">
-            {/* Top Navigation Bar */}
-            <nav className="flex items-center justify-between px-6 py-3 border-b border-surface-border bg-navy-950/80 backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-teal to-accent-blue flex items-center justify-center">
+            {/* Top Navigation Bar — clean, minimal */}
+            <nav className="flex items-center justify-between px-4 md:px-6 h-14 border-b border-surface-border bg-navy-950/80 backdrop-blur-sm safe-top flex-shrink-0">
+                {/* Left: Logo + Brand */}
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-teal to-accent-blue flex items-center justify-center flex-shrink-0">
                         <Shield className="w-4 h-4 text-navy-900" />
                     </div>
-                    <span className="font-display font-bold text-white text-lg">SafeSpeak</span>
+                    <span className="font-display font-bold text-lg text-theme-text">SafeSpeak</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Right: Actions */}
+                <div className="flex items-center gap-1">
+                    {/* Mobile: Chats toggle */}
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="md:hidden p-2 rounded-lg hover:bg-accent-teal/10 transition-all text-white/50"
+                        title="Conversations"
+                    >
+                        <MessagesSquare className="w-[18px] h-[18px]" />
+                    </button>
+
                     <Link
                         to="/chatbot"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/50 hover:text-accent-teal hover:bg-accent-teal/5 transition-all text-sm"
+                        className="p-2 rounded-lg hover:bg-accent-teal/5 transition-all text-white/50"
+                        title="AI Assistant"
                     >
-                        <Bot className="w-4 h-4" />
-                        AI Assistant
+                        <Bot className="w-[18px] h-[18px]" />
                     </Link>
 
-                    <div className="flex items-center gap-2 ml-2 pl-2 border-l border-surface-border">
-                        <span className="text-white/40 text-sm">{user.displayName}</span>
-                        <button
-                            onClick={logout}
-                            className="p-2 rounded-lg text-white/30 hover:text-flag-rose hover:bg-flag-rose/5 transition-all"
-                            title="Sign out"
-                        >
-                            <LogOut className="w-4 h-4" />
-                        </button>
-                    </div>
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2 rounded-lg hover:bg-accent-teal/10 transition-all text-white/50"
+                        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                    >
+                        {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+                    </button>
+
+                    <div className="w-px h-5 bg-surface-border mx-1" />
+
+                    <span className="text-xs text-white/40 hidden sm:inline max-w-[80px] truncate">{user.displayName}</span>
+                    <button
+                        onClick={logout}
+                        className="p-2 rounded-lg text-white/40 hover:text-flag-rose hover:bg-flag-rose/5 transition-all"
+                        title="Sign out"
+                    >
+                        <LogOut className="w-[18px] h-[18px]" />
+                    </button>
                 </div>
             </nav>
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* Mobile Sidebar Backdrop */}
+                {sidebarOpen && (
+                    <div
+                        className="md:hidden fixed inset-0 z-30 bg-navy-950/60 backdrop-blur-sm"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
                 {/* Sidebar — Conversation List */}
-                <div className="w-80 flex-shrink-0">
+                <div
+                    className={`
+                        fixed md:relative z-40 md:z-auto
+                        inset-y-0 left-0 w-[85vw] max-w-[320px] md:w-80
+                        transform transition-transform duration-300 ease-out
+                        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                        md:translate-x-0 md:flex-shrink-0
+                    `}
+                >
+                    {/* Mobile drawer close button */}
+                    <button
+                        onClick={() => setSidebarOpen(false)}
+                        className="md:hidden absolute top-3 right-3 z-50 p-1.5 rounded-lg bg-navy-900/80 text-white/50 hover:text-white/80 transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+
                     <ConversationList
                         userId={user.uid}
                         activeConversationId={activeConversationId}
-                        onSelectConversation={setActiveConversationId}
+                        onSelectConversation={handleSelectConversation}
                         onNewConversation={() => setShowNewChat(true)}
                     />
                 </div>
 
                 {/* Chat Area */}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     {activeConversationId ? (
                         <ChatWindow
                             conversationId={activeConversationId}
                             currentUser={user}
+                            onBack={() => {
+                                setActiveConversationId(null);
+                                setSidebarOpen(true);
+                            }}
                         />
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center px-8">
-                            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-accent-teal/10 to-accent-blue/10 flex items-center justify-center mb-5 animate-fade-in">
-                                <MessageSquare className="w-10 h-10 text-accent-teal/30" />
+                        <div className="h-full flex flex-col items-center justify-center text-center px-6 md:px-8">
+                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl bg-gradient-to-br from-accent-teal/10 to-accent-blue/10 flex items-center justify-center mb-5 animate-fade-in">
+                                <MessageSquare className="w-8 h-8 md:w-10 md:h-10 text-accent-teal/30" />
                             </div>
-                            <h2 className="text-xl font-display font-semibold text-white/60 mb-2 animate-fade-in-up stagger-1">
+                            <h2 className="text-lg md:text-xl font-display font-semibold mb-2 animate-fade-in-up stagger-1 text-white/60">
                                 Select a conversation
                             </h2>
-                            <p className="text-white/30 text-sm max-w-sm animate-fade-in-up stagger-2">
+                            <p className="text-sm max-w-sm animate-fade-in-up stagger-2 text-white/30">
                                 Choose a conversation from the sidebar or start a new one to begin messaging securely.
                             </p>
+
+                            {/* Mobile: button to open sidebar */}
+                            <button
+                                onClick={() => setSidebarOpen(true)}
+                                className="md:hidden mt-4 btn-primary text-sm flex items-center gap-2"
+                            >
+                                <MessagesSquare className="w-4 h-4" />
+                                View Conversations
+                            </button>
                         </div>
                     )}
                 </div>
@@ -123,8 +200,8 @@ export function ChatPage() {
                                 <UserPlus className="w-5 h-5 text-accent-teal" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-display font-semibold text-white">New Conversation</h3>
-                                <p className="text-white/40 text-xs">Enter the email of the user you want to chat with</p>
+                                <h3 className="text-lg font-display font-semibold text-theme-text">New Conversation</h3>
+                                <p className="text-xs text-white/40">Enter the email of the user you want to chat with</p>
                             </div>
                         </div>
 

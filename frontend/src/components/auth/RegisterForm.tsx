@@ -51,7 +51,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
 
             {/* Register Form */}
             <div className="glass-card p-8">
-                <h2 className="text-xl font-display font-semibold text-white mb-6">
+                <h2 className="text-xl font-display font-semibold text-theme-text mb-6">
                     Create account
                 </h2>
 

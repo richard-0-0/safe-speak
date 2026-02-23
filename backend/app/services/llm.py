@@ -73,35 +73,44 @@ async def call_groq_with_fallback(prompt: str, system: str) -> str:
     3. Template-based fallback (no LLM)
     """
     # ── Try 1: Groq Llama 3.3 70B ────────────────────────────────
-    groq_client = _get_groq_client()
-    if groq_client:
-        try:
-            response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=2048,
-            )
-            logger.info("[LLM] Groq response received successfully.")
-            return response.choices[0].message.content
+    if settings.GROQ_API_KEY:
+        groq_client = _get_groq_client()
+        if groq_client:
+            try:
+                response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt},
+                    ],
+                    max_tokens=2048,
+                    timeout=15,
+                )
+                logger.info("[LLM] Groq response received successfully.")
+                return response.choices[0].message.content
 
-        except Exception as groq_err:
-            logger.warning("[LLM] Groq failed: %s. Trying Gemini...", groq_err)
+            except Exception as groq_err:
+                logger.warning("[LLM] Groq failed: %s. Trying Gemini...", groq_err)
+    else:
+        logger.info("[LLM] Groq API key not set, skipping.")
 
     # ── Try 2: Gemini 1.5 Flash ──────────────────────────────────
-    _ensure_gemini()
     if settings.GEMINI_API_KEY:
+        _ensure_gemini()
         try:
             import google.generativeai as genai
             model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content(f"{system}\n\n{prompt}")
+            response = model.generate_content(
+                f"{system}\n\n{prompt}",
+                request_options={"timeout": 15},
+            )
             logger.info("[LLM] Gemini response received successfully.")
             return response.text
 
         except Exception as gemini_err:
             logger.warning("[LLM] Gemini failed: %s. Using template fallback.", gemini_err)
+    else:
+        logger.info("[LLM] Gemini API key not set, skipping.")
 
     # ── Try 3: Template-based fallback (no LLM) ──────────────────
     logger.info("[LLM] Both APIs unavailable. Using template-based fallback.")

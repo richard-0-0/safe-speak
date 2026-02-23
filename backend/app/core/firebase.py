@@ -31,7 +31,7 @@ def init_firebase() -> None:
         })
 
         _firebase_app = firebase_admin.initialize_app(cred, {
-            "storageBucket": f"{settings.FIREBASE_PROJECT_ID}.appspot.com",
+            "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
         })
 
         logger.info("[Firebase] Admin SDK initialized for project: %s", settings.FIREBASE_PROJECT_ID)

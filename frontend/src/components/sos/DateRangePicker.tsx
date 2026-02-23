@@ -1,5 +1,6 @@
 // ── SafeSpeak — Date Range Picker (SOS Report Modal) ────────────────
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { format, subDays } from 'date-fns';
 import { Calendar, FileText, X, Loader2 } from 'lucide-react';
 import { api } from '@/services/api';
@@ -36,7 +37,9 @@ export function DateRangePicker({ conversationId, onClose }: DateRangePickerProp
         }
     };
 
-    return (
+    // Use createPortal to render at document.body level,
+    // escaping any parent `backdrop-filter` / `transform` containing blocks.
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
@@ -142,6 +145,7 @@ export function DateRangePicker({ conversationId, onClose }: DateRangePickerProp
                     <ReportStatus jobId={jobId} onClose={onClose} />
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -1,5 +1,5 @@
-/* ── SafeSpeak — Ocean Depths Theme ─────────────────────────────────
-   Premium dark-theme styling for a trust & safety messaging platform.
+/* ── SafeSpeak — Dual Theme System ─────────────────────────────────
+   Dark: "Ocean Depths" · Light: "Arctic Frost"
    Typography: Clash Display (display) + DM Sans (body)
    ──────────────────────────────────────────────────────────────────── */
 
@@ -12,20 +12,65 @@
 
 /* ── Base Layer ──────────────────────────────────────────────────── */
 @layer base {
-  :root {
-    --color-navy: #0A0F1E;
-    --color-surface: #111827;
-    --color-surface-elevated: #1A2236;
-    --color-accent: #00D4FF;
-    --color-accent-blue: #38BDF8;
-    --color-flag-amber: #F59E0B;
-    --color-flag-rose: #F43F5E;
-    --color-success: #10B981;
-    --color-text: #F1F5F9;
-    --color-text-muted: #94A3B8;
-    --color-border: rgba(255, 255, 255, 0.07);
+
+  /* ── Dark Theme (default) ──
+       Color values stored as R G B channels for Tailwind opacity support */
+  :root,
+  [data-theme="dark"] {
+    --color-navy-50: 232 239 248;
+    --color-navy-100: 197 213 236;
+    --color-navy-200: 158 184 222;
+    --color-navy-800: 17 24 39;
+    --color-navy-900: 10 15 30;
+    --color-navy-950: 6 10 20;
+    --color-surface: 17 24 39;
+    --color-surface-border: 255 255 255;
+    --color-surface-border-opacity: 0.07;
+    --color-accent-teal: 0 212 255;
+    --color-accent-blue: 56 189 248;
+    --color-flag-amber: 245 158 11;
+    --color-flag-rose: 244 63 94;
+    --color-flag-red: 239 68 68;
+    --color-success: 16 185 129;
+    --color-text: 241 245 249;
+    --color-text-muted: 148 163 184;
+    --color-text-inverted: 10 15 30;
+    --color-white-val: 255 255 255;
     --font-display: 'Clash Display', 'Cabinet Grotesk', system-ui, sans-serif;
     --font-body: 'DM Sans', 'Instrument Sans', system-ui, sans-serif;
+    --scrollbar-track: #0A0F1E;
+    --scrollbar-thumb: rgba(0, 212, 255, 0.2);
+    --scrollbar-thumb-hover: rgba(0, 212, 255, 0.4);
+    --grain-opacity: 0.4;
+  }
+
+  /* ── Light Theme ── */
+  [data-theme="light"] {
+    --color-navy-50: 248 250 252;
+    --color-navy-100: 241 245 249;
+    --color-navy-200: 226 232 240;
+    --color-navy-800: 241 245 249;
+    --color-navy-900: 248 250 252;
+    --color-navy-950: 255 255 255;
+    --color-surface: 255 255 255;
+    --color-surface-border: 0 0 0;
+    --color-surface-border-opacity: 0.08;
+    --color-accent-teal: 8 145 178;
+    --color-accent-blue: 2 132 199;
+    --color-flag-amber: 217 119 6;
+    --color-flag-rose: 225 29 72;
+    --color-flag-red: 220 38 38;
+    --color-success: 5 150 105;
+    --color-text: 15 23 42;
+    --color-text-muted: 100 116 139;
+    --color-text-inverted: 255 255 255;
+    --color-white-val: 15 23 42;
+    --font-display: 'Clash Display', 'Cabinet Grotesk', system-ui, sans-serif;
+    --font-body: 'DM Sans', 'Instrument Sans', system-ui, sans-serif;
+    --scrollbar-track: #F8FAFC;
+    --scrollbar-thumb: rgba(8, 145, 178, 0.2);
+    --scrollbar-thumb-hover: rgba(8, 145, 178, 0.4);
+    --grain-opacity: 0.15;
   }
 
   * {
@@ -42,37 +87,47 @@
 
   body {
     font-family: var(--font-body);
-    background-color: var(--color-navy);
-    color: var(--color-text);
+    background-color: rgb(var(--color-navy-900));
+    color: rgb(var(--color-text));
     line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
     font-weight: 600;
     letter-spacing: -0.02em;
   }
 
-  /* Custom scrollbar for ocean depths feel */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
   }
+
   ::-webkit-scrollbar-track {
-    background: var(--color-navy);
+    background: var(--scrollbar-track);
   }
+
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 212, 255, 0.2);
+    background: var(--scrollbar-thumb);
     border-radius: 3px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 212, 255, 0.4);
+    background: var(--scrollbar-thumb-hover);
   }
 }
 
 /* ── Component Layer ─────────────────────────────────────────────── */
 @layer components {
+
   /* Glass-morphism card */
   .glass-card {
     @apply bg-surface/80 backdrop-blur-xl border border-surface-border rounded-2xl;
@@ -85,57 +140,35 @@
 
   /* Primary button with glow */
   .btn-primary {
-    @apply px-6 py-3 rounded-xl font-body font-semibold text-navy-900
-           bg-gradient-to-r from-accent-teal to-accent-blue
-           hover:shadow-lg hover:shadow-accent-teal/25
-           transition-all duration-300 ease-out
-           active:scale-[0.98]
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none;
+    @apply px-6 py-3 rounded-xl font-body font-semibold bg-gradient-to-r from-accent-teal to-accent-blue text-navy-900 hover:shadow-lg hover:shadow-accent-teal/25 transition-all duration-300 ease-out active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none;
   }
 
   /* Secondary button */
   .btn-secondary {
-    @apply px-6 py-3 rounded-xl font-body font-semibold
-           border border-surface-border text-white/80
-           hover:bg-white/5 hover:border-accent-teal/30
-           transition-all duration-300 ease-out
-           active:scale-[0.98];
+    @apply px-6 py-3 rounded-xl font-body font-semibold text-white/80 border border-surface-border hover:bg-white/5 hover:border-accent-teal/30 transition-all duration-300 ease-out active:scale-[0.98];
   }
 
   /* Danger button (SOS) */
   .btn-danger {
-    @apply px-6 py-3 rounded-xl font-body font-semibold text-white
-           bg-gradient-to-r from-flag-rose to-flag-red
-           hover:shadow-lg hover:shadow-flag-rose/30
-           transition-all duration-300 ease-out
-           active:scale-[0.98];
+    @apply px-6 py-3 rounded-xl font-body font-semibold text-white bg-gradient-to-r from-flag-rose to-flag-red hover:shadow-lg hover:shadow-flag-rose/30 transition-all duration-300 ease-out active:scale-[0.98];
   }
 
   /* Input field */
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl font-body
-           bg-navy-950 border border-surface-border
-           text-white placeholder:text-white/30
-           focus:outline-none focus:border-accent-teal/50 focus:ring-1 focus:ring-accent-teal/30
-           transition-all duration-200;
+    @apply w-full px-4 py-3 rounded-xl font-body bg-navy-950 text-white border border-surface-border placeholder:text-white/30 focus:outline-none focus:border-accent-teal/50 focus:ring-1 focus:ring-accent-teal/30 transition-all duration-200;
   }
 
   /* Badge styles for flag indicators */
   .badge-amber {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-semibold bg-flag-amber/20 text-flag-amber
-           animate-pulse-flag;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-flag-amber/20 text-flag-amber animate-pulse-flag;
   }
 
   .badge-rose {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-semibold bg-flag-rose/20 text-flag-rose
-           animate-pulse-flag;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-flag-rose/20 text-flag-rose animate-pulse-flag;
   }
 
   .badge-success {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-semibold bg-success/20 text-success;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success;
   }
 
   /* Grain overlay for premium texture */
@@ -150,16 +183,30 @@
     height: 200%;
     background: transparent url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E") repeat;
     pointer-events: none;
-    z-index: 9999;
-    opacity: 0.4;
+    z-index: 10;
+    opacity: var(--grain-opacity);
   }
 
   /* Staggered animation delays */
-  .stagger-1 { animation-delay: 0.1s; }
-  .stagger-2 { animation-delay: 0.2s; }
-  .stagger-3 { animation-delay: 0.3s; }
-  .stagger-4 { animation-delay: 0.4s; }
-  .stagger-5 { animation-delay: 0.5s; }
+  .stagger-1 {
+    animation-delay: 0.1s;
+  }
+
+  .stagger-2 {
+    animation-delay: 0.2s;
+  }
+
+  .stagger-3 {
+    animation-delay: 0.3s;
+  }
+
+  .stagger-4 {
+    animation-delay: 0.4s;
+  }
+
+  .stagger-5 {
+    animation-delay: 0.5s;
+  }
 }
 
 /* ── Utility Layer ───────────────────────────────────────────────── */
@@ -168,14 +215,63 @@
     text-wrap: balance;
   }
 
-  /* Glow effect for accent elements */
   .glow-teal {
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.15),
-                0 0 40px rgba(0, 212, 255, 0.05);
+    box-shadow: 0 0 20px rgb(var(--color-accent-teal) / 0.15),
+      0 0 40px rgb(var(--color-accent-teal) / 0.05);
   }
 
   .glow-rose {
-    box-shadow: 0 0 20px rgba(244, 63, 94, 0.15),
-                0 0 40px rgba(244, 63, 94, 0.05);
+    box-shadow: 0 0 20px rgb(var(--color-flag-rose) / 0.15),
+      0 0 40px rgb(var(--color-flag-rose) / 0.05);
   }
+}
+
+/* ── Mobile Utilities ────────────────────────────────────────────── */
+
+/* Prevent iOS zoom on input focus (requires ≥16px font) */
+@media screen and (max-width: 767px) {
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Hide scrollbar but keep scrolling */
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Touch-friendly scrolling */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }

@@ -25,7 +25,7 @@ export function ImageMessage({ message, isOwn }: ImageMessageProps) {
 
     return (
         <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3 animate-fade-in-up`}>
-            <div className="relative max-w-[300px] rounded-2xl overflow-hidden border border-surface-border">
+            <div className="relative max-w-[75vw] md:max-w-[300px] rounded-2xl overflow-hidden border border-surface-border">
                 {/* Image */}
                 <div className="relative">
                     <img

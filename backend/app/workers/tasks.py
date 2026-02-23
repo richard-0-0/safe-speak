@@ -136,13 +136,21 @@ def generate_report(self, report_id: str) -> dict:
         conversation_id = report_data["conversationId"]
         date_range = report_data["dateRange"]
 
+        from datetime import datetime, timedelta
+        start_dt = datetime.fromisoformat(date_range["start"].replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(date_range["end"].replace("Z", "+00:00"))
+        
+        # If end date is exactly midnight, extend it to include the full day
+        if end_dt.hour == 0 and end_dt.minute == 0 and end_dt.second == 0:
+            end_dt = end_dt + timedelta(days=1, seconds=-1)
+
         # ── 2. Fetch messages in date range ───────────────────────
         messages_ref = db.collection("conversations").document(conversation_id)\
             .collection("messages")
 
         query = messages_ref\
-            .where("timestamp", ">=", date_range["start"])\
-            .where("timestamp", "<=", date_range["end"])\
+            .where("timestamp", ">=", start_dt)\
+            .where("timestamp", "<=", end_dt)\
             .order_by("timestamp")
 
         all_messages = [doc.to_dict() for doc in query.stream()]

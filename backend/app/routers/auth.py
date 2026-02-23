@@ -134,3 +134,55 @@ async def search_users(
             })
 
     return {"users": results}
+
+
+@router.post("/users/batch")
+@limiter.limit("30/minute")
+async def batch_lookup_users(
+    request: Request,
+    uid: str = Depends(verify_firebase_token),
+):
+    """
+    Batch lookup user profiles by UIDs.
+    Accepts JSON body: { "uids": ["uid1", "uid2", ...] }
+    Returns: { "users": { "uid1": { "displayName": "...", "email": "..." }, ... } }
+    """
+    body = await request.json()
+    uids = body.get("uids", [])
+
+    if not uids or not isinstance(uids, list):
+        return {"users": {}}
+
+    # Limit batch size to prevent abuse
+    uids = uids[:50]
+
+    db = get_firestore_client()
+    result = {}
+
+    for target_uid in uids:
+        if not isinstance(target_uid, str) or not target_uid:
+            continue
+        try:
+            user_doc = db.collection("users").document(target_uid).get()
+            if user_doc.exists:
+                data = user_doc.to_dict()
+                result[target_uid] = {
+                    "displayName": data.get("displayName", ""),
+                    "email": data.get("email", ""),
+                    "photoURL": data.get("photoURL"),
+                }
+            else:
+                result[target_uid] = {
+                    "displayName": "",
+                    "email": "",
+                    "photoURL": None,
+                }
+        except Exception as e:
+            logger.warning("[Auth] Failed to look up user %s: %s", target_uid, e)
+            result[target_uid] = {
+                "displayName": "",
+                "email": "",
+                "photoURL": None,
+            }
+
+    return {"users": result}

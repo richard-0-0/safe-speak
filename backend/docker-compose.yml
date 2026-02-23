@@ -7,7 +7,7 @@ services:
       - "8000:8000"
     env_file: .env
     volumes:
-      - ../models:/app/ml_models/distilbert
+      - ../models/models:/app/ml_models/distilbert
     depends_on:
       - redis
     healthcheck:
@@ -23,7 +23,7 @@ services:
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
     env_file: .env
     volumes:
-      - ../models:/app/ml_models/distilbert
+      - ../models/models:/app/ml_models/distilbert
     depends_on:
       - redis
 

@@ -1,4 +1,14 @@
 /** @type {import('tailwindcss').Config} */
+
+function withOpacity(variableName: string) {
+    return ({ opacityValue }: { opacityValue?: number }) => {
+        if (opacityValue !== undefined) {
+            return `rgb(var(${variableName}) / ${opacityValue})`;
+        }
+        return `rgb(var(${variableName}))`;
+    };
+}
+
 export default {
     content: [
         "./index.html",
@@ -7,37 +17,36 @@ export default {
     theme: {
         extend: {
             colors: {
-                // ── Ocean Depths Theme — SafeSpeak ──────────────
+                // ── Theme-aware colors via CSS variable channels ──
                 navy: {
-                    50: '#E8EFF8',
-                    100: '#C5D5EC',
-                    200: '#9EB8DE',
-                    300: '#7699CF',
-                    400: '#5882C4',
-                    500: '#3A6BB9',
-                    600: '#2D5A9E',
-                    700: '#1E4579',
-                    800: '#111827',
-                    900: '#0A0F1E',
-                    950: '#060A14',
+                    50: withOpacity('--color-navy-50'),
+                    100: withOpacity('--color-navy-100'),
+                    200: withOpacity('--color-navy-200'),
+                    800: withOpacity('--color-navy-800'),
+                    900: withOpacity('--color-navy-900'),
+                    950: withOpacity('--color-navy-950'),
                 },
                 accent: {
-                    teal: '#00D4FF',
-                    blue: '#38BDF8',
-                    glow: '#00D4FF33',
+                    teal: withOpacity('--color-accent-teal'),
+                    blue: withOpacity('--color-accent-blue'),
                 },
                 flag: {
-                    amber: '#F59E0B',
-                    rose: '#F43F5E',
-                    red: '#EF4444',
+                    amber: withOpacity('--color-flag-amber'),
+                    rose: withOpacity('--color-flag-rose'),
+                    red: withOpacity('--color-flag-red'),
                 },
-                success: '#10B981',
-                surface: '#111827',
-                'surface-border': 'rgba(255, 255, 255, 0.07)',
+                success: withOpacity('--color-success'),
+                surface: withOpacity('--color-surface'),
+                'surface-border': `rgb(var(--color-surface-border) / var(--color-surface-border-opacity))`,
+                white: withOpacity('--color-white-val'),
+                'theme-text': withOpacity('--color-text'),
+            },
+            textColor: {
+                white: withOpacity('--color-white-val'),
             },
             fontFamily: {
-                display: ['"Clash Display"', '"Cabinet Grotesk"', 'system-ui', 'sans-serif'],
-                body: ['"DM Sans"', '"Instrument Sans"', 'system-ui', 'sans-serif'],
+                display: ['var(--font-display)'],
+                body: ['var(--font-body)'],
             },
             animation: {
                 'fade-in': 'fadeIn 0.5s ease-out forwards',
@@ -79,9 +88,9 @@ export default {
                 },
             },
             backgroundImage: {
-                'gradient-mesh': 'linear-gradient(135deg, #0A0F1E 0%, #111827 50%, #0A0F1E 100%)',
-                'gradient-accent': 'linear-gradient(135deg, #00D4FF 0%, #38BDF8 100%)',
-                'gradient-danger': 'linear-gradient(135deg, #F43F5E 0%, #EF4444 100%)',
+                'gradient-mesh': `linear-gradient(135deg, rgb(var(--color-navy-900)) 0%, rgb(var(--color-surface)) 50%, rgb(var(--color-navy-900)) 100%)`,
+                'gradient-accent': `linear-gradient(135deg, rgb(var(--color-accent-teal)) 0%, rgb(var(--color-accent-blue)) 100%)`,
+                'gradient-danger': `linear-gradient(135deg, rgb(var(--color-flag-rose)) 0%, rgb(var(--color-flag-red)) 100%)`,
             },
         },
     },

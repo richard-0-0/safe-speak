@@ -16,7 +16,8 @@ import torch
 logger = logging.getLogger(__name__)
 
 # ── Label mapping (matches fine-tuning label order) ──────────────────
-LABELS = ["clean", "offensive", "hate_speech", "threat"]
+# Model was fine-tuned as a binary classifier: 0 = clean, 1 = flagged
+LABELS = ["clean", "flagged"]
 HATE_CONFIDENCE_THRESHOLD = float(os.getenv("HATE_SPEECH_CONFIDENCE_THRESHOLD", "0.85"))
 
 MODEL_DIR = Path(__file__).parent.parent.parent / "ml_models" / "distilbert"
@@ -33,6 +34,7 @@ def export_to_onnx_if_needed():
     model = DistilBertForSequenceClassification.from_pretrained(
         str(MODEL_DIR),
         num_labels=len(LABELS),
+        ignore_mismatched_sizes=True,
     )
     model.eval()
 
@@ -97,6 +99,11 @@ class DistilBERTInference:
         self._initialized = True
         logger.info("[Inference] DistilBERT ONNX session ready.")
 
+    @property
+    def is_ready(self) -> bool:
+        """Check if the model is loaded and ready for inference."""
+        return self._initialized
+
     def preprocess(self, text: str) -> dict:
         """Strip URLs, normalize unicode, tokenize for inference."""
         text = re.sub(r"http\S+|www\S+", "[URL]", text)
@@ -121,6 +128,14 @@ class DistilBERTInference:
         Returns: {"label": str, "confidence": float, "flagged": bool}
         Target: < 100ms p95
         """
+        if not self._initialized:
+            logger.warning("[Inference] Model not loaded — returning default classification.")
+            return {
+                "label": "unknown",
+                "confidence": 0.0,
+                "flagged": False,
+            }
+
         inputs = self.preprocess(text)
         logits = self.session.run(["logits"], inputs)[0]
         probs = self._softmax(logits[0])

@@ -1,11 +1,13 @@
 // ── SafeSpeak — Chatbot Page ────────────────────────────────────────
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { ChatbotPanel } from '@/components/chatbot/ChatbotPanel';
-import { Shield, MessageSquare, LogOut } from 'lucide-react';
+import { Shield, MessageSquare, LogOut, Sun, Moon } from 'lucide-react';
 
 export function ChatbotPage() {
     const { user, loading, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
 
     if (loading) {
         return (
@@ -22,28 +24,37 @@ export function ChatbotPage() {
     return (
         <div className="h-screen flex flex-col bg-navy-900">
             {/* Navigation */}
-            <nav className="flex items-center justify-between px-6 py-3 border-b border-surface-border bg-navy-950/80 backdrop-blur-sm">
-                <div className="flex items-center gap-3">
+            <nav className="flex items-center justify-between px-3 md:px-6 py-3 border-b border-surface-border bg-navy-950/80 backdrop-blur-sm safe-top">
+                <div className="flex items-center gap-2 md:gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-teal to-accent-blue flex items-center justify-center">
                         <Shield className="w-4 h-4 text-navy-900" />
                     </div>
-                    <span className="font-display font-bold text-white text-lg">SafeSpeak</span>
+                    <span className="font-display font-bold text-lg text-theme-text hidden sm:inline">SafeSpeak</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2">
                     <Link
                         to="/chat"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/50 hover:text-accent-teal hover:bg-accent-teal/5 transition-all text-sm"
+                        className="flex items-center gap-2 px-2 md:px-3 py-2 rounded-lg hover:bg-accent-teal/5 transition-all text-sm text-white/50"
                     >
                         <MessageSquare className="w-4 h-4" />
-                        Chat
+                        <span className="hidden md:inline">Chat</span>
                     </Link>
 
-                    <div className="flex items-center gap-2 ml-2 pl-2 border-l border-surface-border">
-                        <span className="text-white/40 text-sm">{user.displayName}</span>
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2 rounded-lg hover:bg-accent-teal/10 transition-all text-white/50"
+                        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                    >
+                        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    </button>
+
+                    <div className="flex items-center gap-1 md:gap-2 ml-1 md:ml-2 pl-1 md:pl-2 border-l border-surface-border">
+                        <span className="text-sm text-white/40 hidden sm:inline max-w-[100px] truncate">{user.displayName}</span>
                         <button
                             onClick={logout}
-                            className="p-2 rounded-lg text-white/30 hover:text-flag-rose hover:bg-flag-rose/5 transition-all"
+                            className="p-2 rounded-lg text-flag-rose/50 hover:text-flag-rose hover:bg-flag-rose/5 transition-all"
                             title="Sign out"
                         >
                             <LogOut className="w-4 h-4" />
