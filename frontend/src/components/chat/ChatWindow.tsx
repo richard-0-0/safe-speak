@@ -245,7 +245,7 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 touch-scroll">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 touch-scroll bg-chat-pattern">
                 {loading ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="w-6 h-6 text-accent-teal animate-spin" />

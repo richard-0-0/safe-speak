@@ -224,6 +224,16 @@
     box-shadow: 0 0 20px rgb(var(--color-flag-rose) / 0.15),
       0 0 40px rgb(var(--color-flag-rose) / 0.05);
   }
+
+  .bg-chat-pattern {
+    background-image: url('/chat-doodle-bg.png');
+    background-size: 400px;
+    background-repeat: repeat;
+  }
+
+  [data-theme="light"] .bg-chat-pattern {
+    background-image: url('/chat-doodle-bg-light.png');
+  }
 }
 
 /* ── Mobile Utilities ────────────────────────────────────────────── */
