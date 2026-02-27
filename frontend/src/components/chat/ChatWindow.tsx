@@ -193,7 +193,7 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 touch-scroll">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 touch-scroll">
                 {loading ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="w-6 h-6 text-accent-teal animate-spin" />
@@ -231,7 +231,7 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
             {/* Message Input — compact on mobile, keyboard-aware */}
             <div
                 ref={inputBarRef}
-                className="px-2 md:px-5 py-2 md:py-3 border-t border-surface-border bg-navy-950/50 safe-bottom flex-shrink-0"
+                className="px-4 md:px-5 py-2.5 md:py-3 border-t border-surface-border bg-navy-950/50 safe-bottom flex-shrink-0"
             >
                 <div className="flex items-center gap-1.5 md:gap-2">
                     {/* Image Upload — compact */}
