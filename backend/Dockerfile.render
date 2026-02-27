@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV PYTHONPATH=/app
 
 # ── Layer 1: Install ML dependencies first (changes rarely, cached) ──
 COPY backend/requirements-docker.txt .
