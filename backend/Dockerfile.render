@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # ── Layer 1: Install ML dependencies first (changes rarely, cached) ──
-COPY requirements-docker.txt .
+COPY backend/requirements-docker.txt .
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
     torch==2.3.0+cpu && \
     pip install --no-cache-dir onnxruntime==1.18.0 transformers==4.40.2 safetensors==0.4.3 onnx==1.16.0
@@ -24,11 +24,11 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 RUN pip install --no-cache-dir -r requirements-docker.txt
 
 # ── Layer 3: Copy application code ──
-COPY . .
+COPY backend/ .
 
 # ── Layer 4: Copy ML model into the image ──
 # Render has no volume mounts, so the model must be baked in
-COPY ../models/models ./ml_models/distilbert/
+COPY models/models ./ml_models/distilbert/
 
 # Make startup script executable
 RUN chmod +x start.sh

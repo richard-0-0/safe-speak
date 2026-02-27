@@ -3,7 +3,7 @@ services:
     name: safespeak-api
     env: docker
     dockerfilePath: backend/Dockerfile.render
-    dockerContext: backend
+    dockerContext: .
     plan: free
     healthCheckPath: /health
     envVars:
