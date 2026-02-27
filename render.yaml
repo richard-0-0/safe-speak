@@ -2,8 +2,8 @@ services:
   - type: web
     name: safespeak-api
     env: docker
-    dockerfilePath: ./backend/Dockerfile.render
-    dockerContext: ./backend
+    dockerfilePath: backend/Dockerfile.render
+    dockerContext: backend
     plan: free
     healthCheckPath: /health
     envVars:
