@@ -226,13 +226,13 @@
   }
 
   .bg-chat-pattern {
-    background-image: url('/chat-doodle-bg.png');
-    background-size: 400px;
+    background-image: linear-gradient(rgb(var(--color-navy-900) / 0.92), rgb(var(--color-navy-900) / 0.92)), url('/chat-doodle-bg.png');
+    background-size: auto, 400px;
     background-repeat: repeat;
   }
 
   [data-theme="light"] .bg-chat-pattern {
-    background-image: url('/chat-doodle-bg-light.png');
+    background-image: linear-gradient(rgb(var(--color-navy-900) / 0.92), rgb(var(--color-navy-900) / 0.92)), url('/chat-doodle-bg-light.png');
   }
 }
 
