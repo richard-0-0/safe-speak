@@ -131,7 +131,17 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
                 {/* Google OAuth */}
                 <button
-                    onClick={loginWithGoogle}
+                    onClick={async () => {
+                        setIsLoading(true);
+                        try {
+                            await loginWithGoogle();
+                        } catch {
+                            // Handled by useAuth
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }}
+                    disabled={isLoading}
                     className="btn-secondary w-full flex items-center justify-center gap-3"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">

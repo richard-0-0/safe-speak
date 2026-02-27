@@ -84,8 +84,13 @@ export function useAuth() {
         setError(null);
         try {
             const result = await signInWithPopup(auth, googleProvider);
-            await syncProfile(result.user);
-        } catch (err: unknown) {
+            if (result.user) {
+                await syncProfile(result.user);
+            }
+        } catch (err: any) {
+            if (err?.code === 'auth/popup-closed-by-user') {
+                return; // Ignore if user simply closed the window
+            }
             const message = err instanceof Error ? err.message : 'Google sign-in failed';
             setError(message.replace('Firebase: ', ''));
             throw err;
