@@ -53,6 +53,19 @@ async def create_or_update_profile(
     return profile
 
 
+@router.post("/heartbeat", status_code=200)
+@limiter.limit("30/minute")
+async def heartbeat(
+    request: Request,
+    uid: str = Depends(verify_firebase_token),
+):
+    """Lightweight presence ping — updates lastSeen to mark user as online."""
+    db = get_firestore_client()
+    from google.cloud.firestore import SERVER_TIMESTAMP
+    db.collection("users").document(uid).update({"lastSeen": SERVER_TIMESTAMP})
+    return {"status": "ok"}
+
+
 @router.post("/conversations")
 @limiter.limit("10/minute")
 async def create_conversation(
@@ -170,6 +183,7 @@ async def batch_lookup_users(
                     "displayName": data.get("displayName", ""),
                     "email": data.get("email", ""),
                     "photoURL": data.get("photoURL"),
+                    "lastSeen": data.get("lastSeen"),
                 }
             else:
                 result[target_uid] = {
@@ -186,3 +200,51 @@ async def batch_lookup_users(
             }
 
     return {"users": result}
+
+
+@router.delete("/conversations/{conversation_id}", status_code=200)
+@limiter.limit("10/minute")
+async def delete_conversation(
+    request: Request,
+    conversation_id: str,
+    uid: str = Depends(verify_firebase_token),
+):
+    """
+    Delete a conversation.
+    - Soft-deletes flagged messages (preserves them for SOS reports)
+    - Hard-deletes non-flagged messages
+    - Deletes the conversation document
+    """
+    db = get_firestore_client()
+    convo_ref = db.collection("conversations").document(conversation_id)
+    convo_doc = convo_ref.get()
+
+    if not convo_doc.exists:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    convo_data = convo_doc.to_dict()
+    if uid not in convo_data.get("participants", []):
+        raise HTTPException(status_code=403, detail="You are not a participant in this conversation.")
+
+    from google.cloud.firestore import SERVER_TIMESTAMP
+
+    # Process all messages in the subcollection
+    messages_ref = convo_ref.collection("messages")
+    for msg_doc in messages_ref.stream():
+        msg_data = msg_doc.to_dict()
+        if msg_data.get("flagged"):
+            # Soft-delete flagged messages
+            msg_doc.reference.update({
+                "deleted": True,
+                "deletedAt": SERVER_TIMESTAMP,
+                "deletedBy": uid,
+            })
+        else:
+            # Hard-delete non-flagged messages
+            msg_doc.reference.delete()
+
+    # Delete the conversation document
+    convo_ref.delete()
+
+    logger.info("[Auth] Conversation %s deleted by %s", conversation_id, uid)
+    return {"status": "ok", "conversationId": conversation_id}

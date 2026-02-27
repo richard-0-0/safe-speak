@@ -13,6 +13,7 @@ def _build_report_html(
     report_data: dict,
     flagged_messages: list[dict],
     llm_summary: str,
+    user_names: dict[str, str] | None = None,
 ) -> str:
     """Build a styled HTML document for the SOS abuse report."""
 
@@ -26,37 +27,58 @@ def _build_report_html(
     # Build the evidence table rows
     evidence_rows = ""
     for idx, msg in enumerate(flagged_messages, 1):
-        label = msg.get("label", "unknown")
-        confidence = msg.get("confidence", 0)
+        flag_details = msg.get("flagDetails", {})
+        label = flag_details.get("label", "unknown") if isinstance(flag_details, dict) else "unknown"
+        confidence = flag_details.get("confidence", 0) if isinstance(flag_details, dict) else 0
         content = msg.get("content", "")
         timestamp = msg.get("timestamp", "N/A")
-        sender = msg.get("senderId", "Unknown")[:8] + "..."
+        sender_uid = msg.get("senderId", "Unknown")
+        sender = (user_names or {}).get(sender_uid, sender_uid[:8] + "...")
 
         label_color = {
             "hate_speech": "#F43F5E",
             "threat": "#EF4444",
             "offensive": "#F59E0B",
+            "flagged": "#F59E0B",
             "clean": "#10B981",
         }.get(label, "#6B7280")
+
+        # Normalize "flagged" to "offensive" for display
+        display_label = "offensive" if label == "flagged" else label
+
+        # Status tags for deleted/edited messages
+        status_tag = ""
+        if msg.get("deleted"):
+            status_tag = '<span style="background: #DC2626; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 4px;">SENT &amp; DELETED</span>'
+        if msg.get("edited"):
+            original = msg.get("originalContent", "")
+            status_tag += f'<span style="background: #3B82F6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 4px;">EDITED</span>'
+            if original:
+                content = f'{content} <br><span style="color: #9CA3AF; font-size: 11px;">(Original: "{original}")</span>'
 
         evidence_rows += f"""
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px;">{idx}</td>
             <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px;">{timestamp}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px; font-family: monospace;">{sender}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px;">{sender}</td>
             <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px; max-width: 250px; word-wrap: break-word;">{content}</td>
             <td style="padding: 10px; border-bottom: 1px solid #E5E7EB;">
                 <span style="background: {label_color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-                    {label.upper().replace('_', ' ')}
+                    {display_label.upper().replace('_', ' ')}
                 </span>
+                {status_tag}
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #E5E7EB; font-size: 12px; text-align: center;">{confidence:.0%}</td>
         </tr>"""
 
-    # Count by category
-    hate_count = sum(1 for m in flagged_messages if m.get("label") == "hate_speech")
-    threat_count = sum(1 for m in flagged_messages if m.get("label") == "threat")
-    offensive_count = sum(1 for m in flagged_messages if m.get("label") == "offensive")
+    # Count by category (read from flagDetails.label)
+    def _get_label(m):
+        fd = m.get("flagDetails", {})
+        return fd.get("label", "unknown") if isinstance(fd, dict) else "unknown"
+
+    hate_count = sum(1 for m in flagged_messages if _get_label(m) == "hate_speech")
+    threat_count = sum(1 for m in flagged_messages if _get_label(m) == "threat")
+    offensive_count = sum(1 for m in flagged_messages if _get_label(m) in ("offensive", "flagged"))
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -216,7 +238,7 @@ def _build_report_html(
             <tr>
                 <th>#</th>
                 <th>Timestamp</th>
-                <th>Sender ID</th>
+                <th>Sender</th>
                 <th>Content</th>
                 <th>Classification</th>
                 <th>Confidence</th>
@@ -254,6 +276,7 @@ def render_report_pdf(
     report_data: dict,
     flagged_messages: list[dict],
     llm_summary: str,
+    user_names: dict[str, str] | None = None,
 ) -> bytes:
     """
     Render a complete SOS abuse report as a PDF.
@@ -266,7 +289,7 @@ def render_report_pdf(
     Returns:
         PDF file content as bytes.
     """
-    html_content = _build_report_html(report_data, flagged_messages, llm_summary)
+    html_content = _build_report_html(report_data, flagged_messages, llm_summary, user_names)
 
     try:
         pdf_bytes = HTML(string=html_content).write_pdf()

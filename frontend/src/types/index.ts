@@ -14,11 +14,18 @@ export interface Message {
     timestamp: FirestoreTimestamp;
     flagged: boolean;
     flagDetails?: {
-        label: 'clean' | 'offensive' | 'hate_speech' | 'threat';
+        label: 'clean' | 'offensive' | 'hate_speech' | 'threat' | 'flagged';
         confidence: number;
         processedAt: string;
     };
     imageBlurred: boolean;
+    readBy?: string[];
+    deleted?: boolean;
+    deletedAt?: FirestoreTimestamp;
+    deletedBy?: string;
+    edited?: boolean;
+    editedAt?: FirestoreTimestamp;
+    originalContent?: string;
 }
 
 export interface Conversation {

@@ -24,6 +24,7 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [participantName, setParticipantName] = useState<string>('Conversation');
+    const [onlineStatus, setOnlineStatus] = useState<'online' | 'away'>('away');
     const [keyboardOffset, setKeyboardOffset] = useState(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,9 +59,11 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
         }
     }, [keyboardOffset]);
 
-    // Resolve participant name from conversation document
+    // Resolve participant name and online status from conversation document
     useEffect(() => {
         if (!conversationId) return;
+
+        let otherUidRef = '';
 
         const resolveParticipant = async () => {
             try {
@@ -69,11 +72,10 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
                     const participants: string[] = convoDoc.data().participants || [];
                     const otherUid = participants.find((p) => p !== currentUser.uid);
                     if (otherUid) {
+                        otherUidRef = otherUid;
                         if (participantCache[otherUid]) {
                             setParticipantName(participantCache[otherUid]);
-                            return;
                         }
-                        // Use backend API to resolve the user profile (Firestore rules block direct reads)
                         try {
                             const response = await api.post('/api/auth/users/batch', { uids: [otherUid] });
                             const users = response.data.users || {};
@@ -81,6 +83,16 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
                                 const name = users[otherUid].displayName || users[otherUid].email || otherUid;
                                 participantCache[otherUid] = name;
                                 setParticipantName(name);
+
+                                // Determine online status from lastSeen
+                                const lastSeen = users[otherUid].lastSeen;
+                                if (lastSeen) {
+                                    const lastSeenDate = lastSeen._seconds
+                                        ? new Date(lastSeen._seconds * 1000)
+                                        : new Date(lastSeen);
+                                    const diffMs = Date.now() - lastSeenDate.getTime();
+                                    setOnlineStatus(diffMs < 30 * 1000 ? 'online' : 'away');
+                                }
                             } else {
                                 setParticipantName(otherUid);
                             }
@@ -95,12 +107,47 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
         };
 
         resolveParticipant();
+
+        // Poll online status every 60 seconds
+        const interval = setInterval(async () => {
+            if (!otherUidRef) return;
+            try {
+                const response = await api.post('/api/auth/users/batch', { uids: [otherUidRef] });
+                const users = response.data.users || {};
+                const lastSeen = users[otherUidRef]?.lastSeen;
+                if (lastSeen) {
+                    const lastSeenDate = lastSeen._seconds
+                        ? new Date(lastSeen._seconds * 1000)
+                        : new Date(lastSeen);
+                    const diffMs = Date.now() - lastSeenDate.getTime();
+                    setOnlineStatus(diffMs < 30 * 1000 ? 'online' : 'away');
+                }
+            } catch { /* ignore */ }
+        }, 15_000);
+
+        return () => clearInterval(interval);
     }, [conversationId, currentUser.uid]);
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Mark unread messages from the other user as read
+    useEffect(() => {
+        if (!conversationId || !messages.length) return;
+
+        const unreadIds = messages
+            .filter((m) => m.senderId !== currentUser.uid && !(m.readBy || []).includes(currentUser.uid))
+            .map((m) => m.id);
+
+        if (unreadIds.length > 0) {
+            api.put('/api/messages/read', {
+                conversationId,
+                messageIds: unreadIds,
+            }).catch((err) => console.warn('[ChatWindow] Failed to mark messages as read:', err));
+        }
+    }, [messages, conversationId, currentUser.uid]);
 
     const handleSend = async () => {
         if (!newMessage.trim() || sending) return;
@@ -184,7 +231,12 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
                     </div>
                     <div className="min-w-0">
                         <h3 className="text-white font-display font-semibold text-sm truncate leading-tight">{participantName}</h3>
-                        <p className="text-white/30 text-[11px] leading-tight">{messages.length} messages</p>
+                        <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${onlineStatus === 'online' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]' : 'bg-white/20'}`} />
+                            <p className={`text-[11px] leading-tight ${onlineStatus === 'online' ? 'text-emerald-400' : 'text-white/30'}`}>
+                                {onlineStatus === 'online' ? 'Online' : 'Away'}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -220,6 +272,8 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
                                     key={msg.id}
                                     message={msg}
                                     isOwn={msg.senderId === currentUser.uid}
+                                    currentUserId={currentUser.uid}
+                                    conversationId={conversationId}
                                 />
                             )
                         )}

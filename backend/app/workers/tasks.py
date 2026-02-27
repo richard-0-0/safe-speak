@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from app.workers.celery_app import celery_app
 from app.core.firebase import get_firestore_client, get_storage_bucket
 from app.services.inference import distilbert
-from app.services.llm import call_groq_with_fallback
+from app.services.llm import call_groq_with_fallback, classify_flagged_message
 from app.services.pdf import render_report_pdf
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 )
 def analyze_text_message(self, conversation_id: str, message_id: str, content: str) -> dict:
     """
-    Run DistilBERT inference on a text message and update Firestore.
-    Called asynchronously after every message send.
+    Run DistilBERT inference on a text message, then sub-classify
+    flagged messages via LLM into hate_speech/threat/offensive.
     """
     try:
         # Ensure model is initialized (handles first-call after worker start)
@@ -34,13 +34,23 @@ def analyze_text_message(self, conversation_id: str, message_id: str, content: s
 
         result = distilbert.predict(content)
 
+        # If flagged, use LLM to sub-classify into hate_speech/threat/offensive
+        label = result["label"]
+        if result["flagged"]:
+            try:
+                label = asyncio.run(classify_flagged_message(content))
+                logger.info("[Task] LLM sub-classified message %s as: %s", message_id, label)
+            except Exception as llm_err:
+                logger.warning("[Task] LLM sub-classification failed for %s: %s. Using 'offensive' as default.", message_id, llm_err)
+                label = "offensive"
+
         # Update Firestore with classification result
         db = get_firestore_client()
         msg_ref = db.collection("conversations").document(conversation_id)\
             .collection("messages").document(message_id)
 
         flag_details = {
-            "label": result["label"],
+            "label": label,
             "confidence": result["confidence"],
             "processedAt": datetime.now(timezone.utc).isoformat(),
         }
@@ -53,11 +63,12 @@ def analyze_text_message(self, conversation_id: str, message_id: str, content: s
         logger.info(
             "[Task] Message %s classified: %s (%.2f) flagged=%s",
             message_id,
-            result["label"],
+            label,
             result["confidence"],
             result["flagged"],
         )
 
+        result["label"] = label
         return result
 
     except Exception as exc:
@@ -160,27 +171,51 @@ def generate_report(self, report_id: str) -> dict:
         report_data["flaggedCount"] = len(flagged_messages)
 
         # ── 3. Generate LLM summary ──────────────────────────────
-        system_prompt = """You are an abuse report analyst. Summarize the flagged messages
-into a professional, clear narrative suitable for submission to authorities or platform moderators.
-Focus on: patterns of abuse, severity, frequency, and escalation. Be factual and empathetic."""
+        system_prompt = """You are a professional report writer helping victims of online abuse. You write clear, factual summaries for abuse reports that may be submitted to school authorities, law enforcement, or platform moderators.
+
+STRICT FORMATTING RULES:
+- Do NOT use any markdown. No asterisks, no bold, no headers, no bullet points.
+- Write in plain English using short, clear sentences.
+- Use numbered lists only when listing specific incidents.
+- Separate paragraphs with a blank line.
+- Keep the total summary under 250 words.
+
+Structure your summary in this exact order:
+1. A one-line overview of what happened (for example: "Between January 1 and January 5, the user received 8 abusive messages containing offensive language.")
+2. A short paragraph describing the nature of the abuse, using simple words.
+3. A note on how serious the situation appears, based on the number and type of messages.
+4. A closing line recommending next steps (like reporting to authorities or seeking help).
+
+Tone: Professional, factual, and empathetic. Avoid dramatic language. Write as if preparing a document for a school principal or a police officer."""
 
         messages_text = "\n".join([
-            f"[{m.get('timestamp', 'N/A')}] ({m.get('flagDetails', {}).get('label', 'unknown')}, "
-            f"{m.get('flagDetails', {}).get('confidence', 0):.0%}): {m.get('content', '')}"
-            for m in flagged_messages[:50]  # Limit to prevent token overflow
+            f"Message {i+1}: \"{m.get('content', '')}\" (classified as: {m.get('flagDetails', {}).get('label', 'unknown')}, "
+            f"confidence: {m.get('flagDetails', {}).get('confidence', 0):.0%})"
+            for i, m in enumerate(flagged_messages[:50])
         ])
 
-        user_prompt = f"""Analyze and summarize these {len(flagged_messages)} flagged messages
-from a conversation between {date_range['start']} and {date_range['end']}:
+        user_prompt = f"""Here are {len(flagged_messages)} messages that were flagged as abusive between {date_range['start']} and {date_range['end']}:
 
 {messages_text}
 
-Provide a concise professional summary of the abuse pattern."""
+Write a clear, professional summary of this abuse. Remember: no markdown formatting, just plain text."""
 
         llm_summary = asyncio.run(call_groq_with_fallback(user_prompt, system_prompt))
 
-        # ── 4. Render PDF ────────────────────────────────────────
-        pdf_bytes = render_report_pdf(report_data, flagged_messages, llm_summary)
+        # ── 4. Resolve sender UIDs to display names ───────────────
+        from firebase_admin import auth as fb_auth
+
+        sender_uids = list(set(m.get("senderId", "") for m in flagged_messages if m.get("senderId")))
+        user_names = {}
+        for uid in sender_uids:
+            try:
+                user_record = fb_auth.get_user(uid)
+                user_names[uid] = user_record.display_name or user_record.email or uid[:8] + "..."
+            except Exception:
+                user_names[uid] = uid[:8] + "..."
+
+        # ── 5. Render PDF ────────────────────────────────────────
+        pdf_bytes = render_report_pdf(report_data, flagged_messages, llm_summary, user_names)
 
         # ── 5. Upload to Firebase Storage ────────────────────────
         user_id = report_data["userId"]

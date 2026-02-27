@@ -4,7 +4,7 @@ import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firest
 import { db } from '@/services/firebase';
 import { api } from '@/services/api';
 import { format } from 'date-fns';
-import { MessageSquare, Plus, Search } from 'lucide-react';
+import { MessageSquare, Plus, Search, Trash2 } from 'lucide-react';
 import type { Conversation } from '@/types';
 
 interface ConversationListProps {
@@ -175,7 +175,7 @@ export function ConversationList({
                                 onClick={() => onSelectConversation(convo.id)}
                                 className={`
                   w-full flex items-center gap-3 px-4 py-3 text-left
-                  transition-all duration-200 border-b border-surface-border/50
+                  transition-all duration-200 border-b border-surface-border/50 group/item
                   ${isActive
                                         ? 'bg-accent-teal/10 border-l-2 border-l-accent-teal'
                                         : 'hover:bg-white/[0.02] border-l-2 border-l-transparent'
@@ -203,6 +203,20 @@ export function ConversationList({
                                             {lastMsg.content}
                                         </p>
                                     )}
+                                </div>
+
+                                {/* Delete button — visible on hover */}
+                                <div
+                                    className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Delete conversation with ${displayName}? This cannot be undone.`)) {
+                                            api.delete(`/api/auth/conversations/${convo.id}`)
+                                                .catch((err) => console.error('[ConversationList] Delete failed:', err));
+                                        }
+                                    }}
+                                >
+                                    <Trash2 className="w-4 h-4 text-red-400/60 hover:text-red-400 transition-colors cursor-pointer" />
                                 </div>
                             </button>
                         );

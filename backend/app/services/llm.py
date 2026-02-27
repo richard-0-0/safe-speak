@@ -117,6 +117,41 @@ async def call_groq_with_fallback(prompt: str, system: str) -> str:
     return generate_template_summary([])
 
 
+async def classify_flagged_message(text: str) -> str:
+    """
+    Sub-classify a flagged message into: hate_speech, threat, or offensive.
+    Called only when DistilBERT has already flagged the message.
+    Returns one of: 'hate_speech', 'threat', 'offensive'
+    """
+    VALID_LABELS = {"hate_speech", "threat", "offensive"}
+
+    system = """You are a content classification engine. Your ONLY job is to classify a harmful message into exactly one of these three categories:
+
+1. hate_speech — targets someone based on race, religion, gender, sexuality, disability, or ethnicity.
+2. threat — contains a direct or implied threat of violence, harm, or intimidation.
+3. offensive — contains insults, slurs, profanity, or abusive language that does not fit the above two categories.
+
+RULES:
+- Reply with ONLY ONE WORD: hate_speech, threat, or offensive.
+- Do not add any explanation, punctuation, or extra text.
+- If unsure, reply with: offensive"""
+
+    prompt = f'Classify this message: "{text}"'
+
+    try:
+        result = await call_groq_with_fallback(prompt, system)
+        label = result.strip().lower().replace(" ", "_")
+        # Clean up any extra text the LLM might add
+        for valid in VALID_LABELS:
+            if valid in label:
+                return valid
+        logger.warning("[LLM] Sub-classification returned unexpected: '%s'. Defaulting to 'offensive'.", label)
+        return "offensive"
+    except Exception as e:
+        logger.error("[LLM] Sub-classification failed: %s. Defaulting to 'offensive'.", e)
+        return "offensive"
+
+
 async def generate_chatbot_response(
     extracted_text: str,
     classification: dict,
@@ -130,35 +165,42 @@ async def generate_chatbot_response(
     if session_history is None:
         session_history = []
 
-    system_prompt = """You are SafeSpeak's AI assistant — an expert on online safety,
-hate speech identification, and digital abuse reporting.
+    system_prompt = """You are SafeSpeak's AI safety assistant. You help people understand whether messages or screenshots contain harmful content like hate speech, threats, or bullying.
 
-Your role:
-- Analyze text extracted from screenshots for hate speech patterns
-- Explain classification results in clear, empathetic language
-- Guide users on how to report abuse and protect themselves
-- Be supportive and non-judgmental
+IMPORTANT FORMATTING RULES — follow these strictly:
+- Do NOT use any markdown formatting. No asterisks, no bold (**), no headers (#), no bullet symbols.
+- Write in plain, simple English as if you are talking to a friend.
+- Use short sentences and short paragraphs.
+- Separate sections with a blank line, not with symbols or headers.
+- Use numbered lists (1, 2, 3) only when listing steps. Do not use dashes or bullet points.
+- Keep your response under 200 words.
 
-Always respond in a structured format with:
-1. Analysis of the content
-2. Classification explanation
-3. Recommended actions
-4. Supportive closing
+Your response should cover these areas in this order:
+1. What the message says and whether it is harmful (1-2 sentences).
+2. Why it was classified the way it was (1 sentence).
+3. What the person can do about it (2-3 practical steps).
+4. A short encouraging closing line.
 
-Keep responses concise but thorough. Maximum 300 words."""
+Tone: Warm, calm, supportive. Never judgmental. Speak like a caring counselor, not a robot."""
 
     if extracted_text and classification:
-        user_prompt = f"""Analyze this text extracted from a screenshot:
+        label = classification.get('label', 'unknown')
+        confidence = classification.get('confidence', 0)
+        flagged = classification.get('flagged', False)
 
-Extracted Text: "{extracted_text}"
+        status = "harmful" if flagged else "safe"
+        confidence_pct = f"{confidence:.0%}"
 
-AI Classification Result:
-- Label: {classification.get('label', 'unknown')}
-- Confidence: {classification.get('confidence', 0):.0%}
-- Flagged: {classification.get('flagged', False)}
+        user_prompt = f"""Here is a message that was analyzed by our AI:
 
-{f'User follow-up question: {user_message}' if user_message else 'Provide your initial analysis and recommendations.'}"""
+Message: "{extracted_text}"
+
+Our AI thinks this message is {status} (confidence: {confidence_pct}, category: {label}).
+
+{f'The user is asking: {user_message}' if user_message else 'Please explain this result and give advice on what to do next.'}
+
+Remember: write in plain text only, no markdown, no bold, no special formatting."""
     else:
-        user_prompt = user_message
+        user_prompt = user_message + "\n\nRemember: write in plain text only, no markdown, no bold, no special formatting."
 
     return await call_groq_with_fallback(user_prompt, system_prompt)

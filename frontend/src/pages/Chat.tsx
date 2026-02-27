@@ -19,6 +19,16 @@ export function ChatPage() {
     // Mobile: controls whether the sidebar drawer is visible
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    // ── Heartbeat: keep lastSeen fresh so others see us as "Online" ──
+    useEffect(() => {
+        if (!user) return;
+        // Send heartbeat immediately on mount, then every 20s
+        const ping = () => api.post('/api/auth/heartbeat').catch(() => { });
+        ping();
+        const interval = setInterval(ping, 20_000);
+        return () => clearInterval(interval);
+    }, [user]);
+
     // On desktop (≥768px) the sidebar is always visible; on mobile it's a drawer.
     // When a conversation is selected on mobile, close the drawer.
     const handleSelectConversation = (id: string) => {
