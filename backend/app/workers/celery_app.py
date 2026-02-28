@@ -34,6 +34,11 @@ celery_app = Celery(
     include=["app.workers.tasks"],
 )
 
+# On Render free tier (512MB), we CANNOT run a separate Celery worker
+# because the ML model alone is ~300MB. Two processes = OOM.
+# task_always_eager=True runs tasks inline in the FastAPI process.
+RUN_EAGER = os.getenv("CELERY_ALWAYS_EAGER", "true").lower() == "true"
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
@@ -45,4 +50,6 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=100,
     broker_connection_retry_on_startup=True,
+    task_always_eager=RUN_EAGER,
+    task_eager_propagates=RUN_EAGER,
 )
