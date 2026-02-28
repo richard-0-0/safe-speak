@@ -3,9 +3,10 @@
 # Runs both FastAPI API server and Celery worker in a single container.
 # Used for Render.com free tier (single container deployment).
 
-set -e
+# Do NOT use "set -e" — if Celery has a transient error on boot,
+# we still want the FastAPI server to start and serve traffic.
 
-# Suppress Celery root warning
+# Suppress Celery root warning (Docker runs as root by default)
 export C_FORCE_ROOT="true"
 
 echo "[SafeSpeak] Starting Celery worker in background..."
