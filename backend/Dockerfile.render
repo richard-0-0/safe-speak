@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 RUN pip install --no-cache-dir -r requirements-docker.txt
 
 # ── Layer 3: Copy application code ──
-COPY backend/ .
+COPY backend /app
 
 # ── Layer 4: Copy ML model into the image ──
 # Render has no volume mounts, so the model must be baked in
