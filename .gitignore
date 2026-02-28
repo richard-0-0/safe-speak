@@ -19,8 +19,8 @@ firebase_credentials.json
 serviceAccountKey.json
 
 # ── ML models (too large for GitHub, download separately) ────────────
-models/
-ml_models/
+/models/
+/ml_models/
 *.safetensors
 *.pt
 *.pth
