@@ -1,0 +1,29 @@
+{
+    "name": "SafeSpeak",
+    "short_name": "SafeSpeak",
+    "description": "Secure messaging with AI-powered hate speech detection and protection",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "theme_color": "#0A0F1E",
+    "background_color": "#0A0F1E",
+    "icons": [
+        {
+            "src": "/icon-192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/icon-512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ],
+    "categories": [
+        "social",
+        "security"
+    ],
+    "lang": "en"
+}
