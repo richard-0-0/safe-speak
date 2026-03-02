@@ -212,16 +212,16 @@ export function ChatWindow({ conversationId, currentUser, onBack }: ChatWindowPr
     return (
         <div className="h-full flex flex-col bg-navy-900" style={keyboardOffset > 0 ? { paddingBottom: `${keyboardOffset}px` } : undefined}>
             {/* Chat Header */}
-            <div className="flex items-center justify-between px-3 md:px-5 h-12 md:h-14 border-b border-surface-border bg-navy-950/50 backdrop-blur-sm flex-shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-between px-3 md:px-5 h-14 md:h-14 border-b border-surface-border bg-navy-950/50 backdrop-blur-sm safe-top flex-shrink-0">
+                <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
                     {/* Mobile back button */}
                     {onBack && (
                         <button
                             onClick={onBack}
-                            className="md:hidden p-1.5 rounded-lg hover:bg-accent-teal/10 transition-all text-white/50 flex-shrink-0"
+                            className="md:hidden p-2 -ml-1 rounded-xl hover:bg-accent-teal/10 transition-all text-theme-text/70 flex-shrink-0"
                             title="Back to conversations"
                         >
-                            <ArrowLeft className="w-[18px] h-[18px]" />
+                            <ArrowLeft className="w-[20px] h-[20px]" />
                         </button>
                     )}
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-teal/30 to-accent-blue/30 flex items-center justify-center flex-shrink-0">

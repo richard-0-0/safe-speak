@@ -9,16 +9,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-    theme: 'dark',
+    theme: 'light',
     toggleTheme: () => { },
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const [theme, setTheme] = useState<Theme>(() => {
         const stored = localStorage.getItem('safespeak-theme');
-        return (stored === 'light' || stored === 'dark') ? stored : 'dark';
+        return (stored === 'light' || stored === 'dark') ? stored : 'light';
     });
 
+    // Apply theme to document element
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('safespeak-theme', theme);

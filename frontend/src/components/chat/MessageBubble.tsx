@@ -183,24 +183,25 @@ export function MessageBubble({ message, isOwn, currentUserId, conversationId }:
                     </div>
                 ) : (
                     <>
-                        {/* Flag Badge — shown to recipient with confidence % */}
-                        {isFlagged && !isOwn && (
-                            <div className={`absolute -top-2 -right-2 z-10 ${getBadgeStyle()} animate-pulse`}>
-                                <AlertTriangle className="w-3 h-3" />
-                                <span>{getFlagText()} {Math.round(flagConfidence * 100)}%</span>
-                            </div>
-                        )}
-
                         {/* Message Content with timestamp INSIDE the bubble */}
                         <div
                             className={`
                     px-3.5 pt-2.5 pb-1.5 rounded-2xl font-body text-sm leading-relaxed
                     ${isOwn
                                     ? 'bg-gradient-to-r from-accent-teal/20 to-accent-blue/20 border border-accent-teal/20 text-white rounded-br-md'
-                                    : 'bg-surface border border-surface-border text-white/90 rounded-bl-md'
+                                    : isFlagged
+                                        ? 'bg-surface border border-flag-amber/30 text-white/90 rounded-bl-md'
+                                        : 'bg-surface border border-surface-border text-white/90 rounded-bl-md'
                                 }
                   `}
                         >
+                            {/* Flag Badge — inline at top of bubble */}
+                            {isFlagged && !isOwn && (
+                                <div className={`${getBadgeStyle()} mb-1.5`}>
+                                    <AlertTriangle className="w-3 h-3" />
+                                    <span>{getFlagText()} {Math.round(flagConfidence * 100)}%</span>
+                                </div>
+                            )}
                             <p>{message.content}
                                 {message.edited && (
                                     <span className="text-[10px] text-white/30 ml-1.5 italic">(edited)</span>

@@ -13,6 +13,10 @@ export default defineConfig({
       manifest: false, // we use the static manifest.json in public/
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // Exclude Firebase auth handler from service worker navigation fallback
+        // Without this, the SW intercepts /__/auth/handler and serves index.html
+        // which breaks Google Sign-in popup
+        navigateFallbackDenylist: [/^\/__\/.*/],
         runtimeCaching: [
           {
             // Cache Google Fonts stylesheets

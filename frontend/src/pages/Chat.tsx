@@ -9,6 +9,8 @@ import { Shield, LogOut, Bot, MessageSquare, UserPlus, Loader2, Sun, Moon, X, Me
 import { api } from '@/services/api';
 import { Link } from 'react-router-dom';
 
+import { requestNotificationPermission } from '@/services/firebase';
+
 export function ChatPage() {
     const { user, loading, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
@@ -18,6 +20,29 @@ export function ChatPage() {
     const [creating, setCreating] = useState(false);
     // Mobile: controls whether the sidebar drawer is visible
     const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // Notification permission state
+    const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
+
+    useEffect(() => {
+        if ('Notification' in window) {
+            setNotificationStatus(Notification.permission);
+        }
+    }, []);
+
+    const enableNotifications = async () => {
+        const token = await requestNotificationPermission();
+        if (token) {
+            try {
+                await api.post('/api/auth/fcm-token', { token });
+                setNotificationStatus('granted');
+            } catch (err) {
+                console.error("Failed to register token", err);
+            }
+        } else {
+            setNotificationStatus(Notification.permission);
+        }
+    };
 
     // ── Heartbeat: keep lastSeen fresh so others see us as "Online" ──
     useEffect(() => {
@@ -78,8 +103,8 @@ export function ChatPage() {
 
     return (
         <div className="h-screen flex flex-col bg-navy-900">
-            {/* Top Navigation Bar — clean, minimal */}
-            <nav className="flex items-center justify-between px-4 md:px-6 h-14 border-b border-surface-border bg-navy-950/80 backdrop-blur-sm safe-top flex-shrink-0">
+            {/* Top Navigation Bar — hide on mobile when chat is active */}
+            <nav className={`items-center justify-between px-4 md:px-6 h-14 border-b border-surface-border bg-navy-950/80 backdrop-blur-sm safe-top flex-shrink-0 ${activeConversationId ? 'hidden md:flex' : 'flex'}`}>
                 {/* Left: Logo + Brand */}
                 <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-teal to-accent-blue flex items-center justify-center flex-shrink-0">
@@ -102,7 +127,6 @@ export function ChatPage() {
                     <Link
                         to="/chatbot"
                         className="p-2 rounded-lg hover:bg-accent-teal/5 transition-all text-white/50"
-                        title="AI Assistant"
                     >
                         <Bot className="w-[18px] h-[18px]" />
                     </Link>
@@ -127,6 +151,19 @@ export function ChatPage() {
                     </button>
                 </div>
             </nav>
+
+            {/* Notification Prompt Banner */}
+            {notificationStatus === 'default' && (
+                <div className="bg-accent-teal/10 border-b border-accent-teal/20 px-4 py-2.5 flex items-center justify-between">
+                    <p className="text-sm text-theme-text font-medium">Enable notifications to never miss a message.</p>
+                    <button
+                        onClick={enableNotifications}
+                        className="text-xs font-semibold px-3 py-1.5 bg-accent-teal text-navy-900 rounded-lg hover:opacity-90"
+                    >
+                        Enable
+                    </button>
+                </div>
+            )}
 
             {/* Main Content */}
             <div className="flex-1 flex overflow-hidden relative">

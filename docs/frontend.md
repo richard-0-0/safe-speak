@@ -17,12 +17,14 @@ graph TD
         Hooks -- HTTP Actions --> Axios[Axios API Client]
         Hooks -- API Polling --> ReactQuery[TanStack React Query]
         Hooks -- Real-time Sync --> FirestoreSDK[Firestore Client SDK]
+        Hooks -- FCM Push --> FirebaseMessaging[Firebase Messaging SDK]
     end
     
     Axios -- POST / PUT / DELETE --> Backend[FastAPI Backend]
     ReactQuery -- GET (Report Status) --> Backend
     FirebaseAuth -- JWT Token --> Axios
     FirestoreSDK -- WebSockets --> Firestore[Cloud Firestore]
+    FirebaseMessaging -. Background SW .-> BrowserNotification[Browser Native UI]
 ```
 
 ### Key Architectural Decisions
@@ -31,16 +33,21 @@ graph TD
    - **Axios REST API**: Used for all *mutations* (sending messages, creating conversations, starting ML tasks). This ensures the backend can intercept the action and dispatch asynchronous Machine Learning tasks before writing the final result to the database.
    - **TanStack React Query**: Used specifically for polling the status of background SOS report generation jobs.
 2. **Offline Persistence**: Firestore's IndexedDB offline persistence is enabled. This ensures that users can view their chat history even if they momentarily lose internet connection, preventing data loss.
-3. **Tailwind CSS + Glassmorphism**: The UI uses a custom Tailwind configuration with heavy use of backdrop blurs (`backdrop-blur-sm`, `glass-card`), gradients, and CSS variables to create a modern, trusted "safe space" aesthetic.
+3. **Progressive Web App (PWA) & Push**: The application uses a custom Service Worker (`firebase-messaging-sw.js`) alongside VitePWA to receive background push notifications from Firebase Cloud Messaging (FCM) when the app is minimized.
+4. **Tailwind CSS + Responsive Design**: The UI uses a custom Tailwind configuration focusing on glassmorphism and safe-area insets for mobile iOS. The default theme is `light` mode.
 
 ---
 
 ## 2. Directory Structure & Key Files
 
 ```
-frontend/src/
-├── App.tsx                 # Root routing and Context Providers
-├── main.tsx                # Vite mount point
+frontend/
+├── public/
+│   ├── firebase-messaging-sw.js # Firebase Cloud Messaging service worker
+│   └── chat-doodle-bg.png      # Chat background assets
+├── src/
+│   ├── App.tsx                 # Root routing and Context Providers
+│   ├── main.tsx                # Vite mount point
 ├── components/             # Reusable UI pieces
 │   ├── auth/               # LoginForm, RegisterForm
 │   ├── chat/               # ChatWindow, ConversationList, MessageBubble, ImageMessage
@@ -57,7 +64,7 @@ frontend/src/
 │   └── Chatbot.tsx         # /chatbot layout
 ├── services/               # External Integrations
 │   ├── api.ts              # Axios instance with Interceptors
-│   ├── firebase.ts         # Firebase SDK initialization
+│   ├── firebase.ts         # Firebase SDK init + FCM push handling
 │   └── storage.ts          # Firebase Storage helpers
 └── types/                  # TypeScript interfaces bridging DB and UI
     └── index.ts            # Shared models (Message, User, Report)
@@ -70,9 +77,9 @@ frontend/src/
 The application avoids heavy global state libraries (like Redux) in favor of domain-specific custom hooks.
 
 ### 3.1 `useAuth`
-- **Purpose**: Manages the current user's session.
+- **Purpose**: Manages the current user's session and background FCM registration.
 - **Mechanism**: Attaches an `onAuthStateChanged` listener to Firebase Auth on mount.
-- **Flow**: Returns `user` (or null), a `loading` boolean, and methods for login/register/logout. After a successful login, it silently calls `api.post('/api/auth/profile')` to sync the user's latest Auth data (like their Google photo URL) to their Firestore `users` document.
+- **Flow**: Returns `user`, `loading`, and authentication methods. After login, it calls `/api/auth/profile` to sync data. Users are then prompted inside the `Chat.tsx` UI to enable push notifications manually, which bypasses harsh browser auto-block policies.
 
 ### 3.2 `useMessages`
 - **Purpose**: Real-time chat synchronization.
@@ -89,14 +96,14 @@ The application avoids heavy global state libraries (like Redux) in favor of dom
 ## 4. Core UI Components
 
 ### 4.1 Chat Architecture (`pages/Chat.tsx`)
-The main interface is a split-pane layout:
+The main interface is a highly responsive split-pane layout:
 - **`ConversationList` (Sidebar)**: 
-  - Queries the `conversations` collection where the current UID is in the `participants` array. 
-  - Shows an unread indicator based on whether the current UID is in the `readBy` array of the `lastMessage`.
-  - On mobile, it acts as a slide-out drawer controlled by state in `Chat.tsx`.
+  - Queries `conversations` where the current UID is a participant. 
+  - Acts as a sliding drawer on mobile.
 - **`ChatWindow` (Main Area)**: 
-  - Mounts when a conversation is selected. Uses `useMessages` to display the feed.
-  - Contains the message input bar, the `SOSButton`, and renders a list of `MessageBubble`s.
+  - On mobile, actively hiding the global top navigation when a chat is open provides a clean, native-app-like experience (similar to WhatsApp).
+  - Handles a custom `Notification Prompt Banner` that explicitly asks the user to click "Enable" to activate FCM Push Notifications, overcoming browser silent-blocks.
+  - Manages tricky mobile virtual keyboards by listening to the `Visual Viewport API` and dynamically shifting the input bar upward.
 
 ### 4.2 Handling ML Output (`components/chat/MessageBubble.tsx`)
 The frontend is heavily driven by the asynchronous ML results generated by the backend:
@@ -119,9 +126,19 @@ Because screenshot analysis takes longer (OCR + DistilBERT + LLM Generation), th
 
 ---
 
-## 6. Styling System
+## 6. Styling & Native Mobile Feel
 
-SafeSpeak uses Tailwind CSS with CSS Variables to support seamless Light/Dark modes:
-- Defined in `index.css`: `--color-bg-navy`, `--color-accent-teal`, `--color-flag-red`.
-- `tailwind.config.ts` maps these variables to custom utility classes like `bg-navy-900` or `text-flag-rose`.
-- **Micro-interactions**: Extensive use of simple animations (e.g., `animate-fade-in-up`, `animate-spin`, `transition-all`) to make the app feel responsive and "alive" during latency-heavy ML operations.
+SafeSpeak uses Tailwind CSS with CSS Variables for theme management:
+- **Light/Dark Mode**: Driven by `[data-theme="light"]` attributes in `index.css`. The application defaults to Light Mode.
+- **Mobile Optimizations**: 
+  - Uses `safe-top` and `safe-bottom` CSS utility classes based on `env(safe-area-inset-top)` to prevent overlap with Apple/Android hardware notches.
+  - Inputs enforce `font-size: 16px` to prevent aggressive iOS auto-zooming.
+  - `touch-scroll` and `scrollbar-hidden` utilities provide fluid, native-feeling scrolling inside the message lists.
+
+---
+
+## 7. Push Notifications (FCM)
+
+1. **Service Worker (`firebase-messaging-sw.js`)**: Resides in the `public/` directory. Listens for FCM payloads. Firebase's built-in SDK automatically translates `payload.notification` blocks into system-level push notifications when the browser tab is minimized or closed.
+2. **Foreground Handling (`firebase.ts`)**: When the app is actively open, FCM triggers `onMessage()` which can be used to show internal toasts or simply let Firestore's real-time sync handle UI updates.
+3. **Backend Sync**: The frontend `requestNotificationPermission()` grabs a VAPID token from Firebase and posts it to the backend (`/api/auth/fcm-token`) where it is stored in the user's Firestore profile to target them later.

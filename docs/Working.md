@@ -26,6 +26,7 @@ SafeSpeak is an AI-powered real-time messaging platform that detects hate speech
 │                        FRONTEND (React + Vite)                  │
 │  Firebase Auth (Client SDK) ─── Firestore Real-Time Listeners   │
 │  Pages: Login | Chat | Chatbot                                  │
+│  Service Worker: firebase-messaging-sw.js (Push Notifications)  │
 │  Axios HTTP Client → Backend API                                │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ HTTPS (Bearer Token)
@@ -34,6 +35,7 @@ SafeSpeak is an AI-powered real-time messaging platform that detects hate speech
 │                    BACKEND (FastAPI + Python)                    │
 │  Auth Router │ Messages Router │ Chatbot Router │ Reports Router│
 │  Firebase Admin SDK │ Rate Limiting │ CORS │ Sentry             │
+│  Notifications Service (FCM Push)                               │
 └──────┬──────────────┬──────────────┬───────────────┬────────────┘
        │              │              │               │
        ▼              ▼              ▼               ▼
@@ -43,7 +45,7 @@ SafeSpeak is an AI-powered real-time messaging platform that detects hate speech
 │            │ │(Inference) │ │Gemini    │ │  - Text Analysis    │
 │  Firebase  │ │            │ │          │ │  - Image Safety     │
 │  Storage   │ │ Tesseract  │ │ Template │ │  - Report Gen (PDF) │
-│  (Files)   │ │ OCR        │ │ Fallback │ │                     │
+│  (Files)   │ │ OCR        │ │ Fallback │ │  - Push Alerts      │
 └────────────┘ └────────────┘ └──────────┘ └─────────────────────┘
 ```
 
@@ -100,7 +102,7 @@ safe-speak/
 │   │   │   └── useTheme.tsx        # Dark/light theme toggle
 │   │   ├── services/
 │   │   │   ├── api.ts              # Axios client with Firebase token interceptor
-│   │   │   ├── firebase.ts         # Firebase client SDK initialization
+│   │   │   ├── firebase.ts         # Firebase client SDK init + FCM push handling
 │   │   │   └── storage.ts          # Firebase Storage helpers
 │   │   └── types/
 │   │       └── index.ts            # TypeScript interfaces (Message, Conversation, Report, User)
@@ -134,7 +136,7 @@ safe-speak/
 | **LLM**        | Groq (Llama 3.3 70B) → Google Gemini 1.5 Flash |
 | **PDF**        | WeasyPrint                                      |
 | **Task Queue** | Celery + Redis                                  |
-| **Deployment** | Render.com (Docker) + Firebase Hosting          |
+| **Deployment** | Hugging Face Spaces (Docker) + Firebase Hosting |
 | **Monitoring** | Sentry (error tracking)                         |
 
 ---
@@ -164,6 +166,7 @@ When the FastAPI server starts:
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/profile` | POST | Create/update user profile in Firestore after login |
+| `/fcm-token` | POST | Register a device FCM token for push notifications |
 | `/heartbeat` | POST | Update `lastSeen` timestamp (online presence) |
 | `/conversations` | POST | Create a new 1:1 conversation by participant email |
 | `/users/search` | GET | Search for users by email |
@@ -227,6 +230,12 @@ Functions:
   - Disclaimer and footer
 - Renders HTML → PDF using WeasyPrint
 
+#### Notifications Service (`services/notifications.py`)
+- `send_push_notification(recipient_uid, title, body, data)`
+- Retrieves stored FCM tokens for a user from Firestore
+- Uses Firebase Admin SDK to dispatch cross-platform push notifications
+- Automatically detects and cleans up invalid/expired device tokens
+
 ### 4.5 Celery Background Workers (`workers/tasks.py`)
 
 Three background tasks (all with 3 retries + exponential backoff):
@@ -279,7 +288,8 @@ Report Request → Fetch Flagged Messages → LLM Summary → PDF Render → Upl
    - **Email/Password** registration (`createUserWithEmailAndPassword` + `updateProfile`)
    - **Google OAuth** popup (`signInWithPopup`)
 3. After successful auth, `syncProfile()` calls `POST /api/auth/profile` to sync user data to Firestore
-4. Logout calls Firebase `signOut`
+4. An explicit UI prompt allows users to opt-in to Push Notifications, which registers their FCM Token via `POST /api/auth/fcm-token`
+5. Logout calls Firebase `signOut`
 
 ### 5.3 API Client (`services/api.ts`)
 
@@ -336,9 +346,11 @@ Report Request → Fetch Flagged Messages → LLM Summary → PDF Render → Upl
 ```
 User types message → Frontend POST /api/messages
   → Backend writes to Firestore (instant delivery)
+  → Backend dispatches Push Notification to recipient device(s)
   → Backend dispatches Celery task: analyze_text_message
   → Celery worker runs DistilBERT inference
-  → If flagged: LLM sub-classifies → updates Firestore flagDetails
+  → If flagged: LLM sub-classifies → updates Firestore flagDetails 
+  → If flagged: Backend dispatches "⚠️ Flagged Content" Push Notification
   → Frontend's onSnapshot listener picks up the update → shows flag badge
 ```
 
@@ -426,6 +438,7 @@ Image Bytes → OpenCV Grayscale → Gaussian Blur → Otsu's Threshold → Tess
   displayName: string,
   email: string,
   photoURL: string | null,
+  fcmTokens: [string, ...],
   lastSeen: Timestamp,
   createdAt: Timestamp
 }
@@ -488,14 +501,14 @@ Image Bytes → OpenCV Grayscale → Gaussian Blur → Otsu's Threshold → Tess
 
 ## 9. Deployment Architecture
 
-### Production (Render.com)
+### Production (Hugging Face Spaces)
 
-Defined in `render.yaml`:
+Deployed as a Docker Space on Hugging Face:
 
 - **Single Docker container** running both FastAPI + Celery worker via `start.sh`
-  - Celery uses `--pool=solo` to share memory (critical for Render's 512MB free tier)
-  - ML model is ~300MB in memory
-- **Redis** (Upstash or Render Redis) as Celery broker
+  - Celery uses `--pool=solo` to reduce memory overhead sharing the 16GB RAM Space
+  - ML model is ~300MB in memory and loaded at startup
+- **Redis** (Upstash Serverless Redis) acting as the Celery message broker
 - **Firebase Hosting** serves the frontend static build
 
 ### Local Development (Docker Compose)
@@ -538,3 +551,4 @@ ML model files are mounted from `../models/models/` into `/app/ml_models/distilb
 | `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | Firebase app ID |
+| `VITE_FIREBASE_VAPID_KEY` | VAPID Key for Web Push Certificates (FCM) |

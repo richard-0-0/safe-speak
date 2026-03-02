@@ -9,7 +9,7 @@ import {
     updateProfile,
     type User as FirebaseUser,
 } from 'firebase/auth';
-import { auth, googleProvider } from '@/services/firebase';
+import { auth, googleProvider, requestNotificationPermission } from '@/services/firebase';
 import { api } from '@/services/api';
 import type { User } from '@/types';
 
@@ -37,7 +37,7 @@ export function useAuth() {
         return () => unsubscribe();
     }, []);
 
-    // Sync user profile to Firestore via backend
+    // Sync user profile to Firestore via backend and register FCM token
     const syncProfile = useCallback(async (firebaseUser: FirebaseUser) => {
         try {
             await api.post('/api/auth/profile', {
@@ -46,8 +46,15 @@ export function useAuth() {
                 email: firebaseUser.email || '',
                 photoURL: firebaseUser.photoURL || null,
             });
+
+            // After login/sync, request notification permission
+            const fcmToken = await requestNotificationPermission();
+            if (fcmToken) {
+                await api.post('/api/auth/fcm-token', { token: fcmToken });
+                console.log('[Auth] FCM token registered for push notifications');
+            }
         } catch (err) {
-            console.warn('[Auth] Profile sync failed (backend may be offline):', err);
+            console.warn('[Auth] Profile sync or token registration failed:', err);
         }
     }, []);
 
